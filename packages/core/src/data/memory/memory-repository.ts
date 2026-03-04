@@ -261,11 +261,30 @@ export class MemoryRepository {
       conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     // Convert query to OR-based FTS5 syntax for better recall
-    const ftsQuery = query
-      .trim()
-      .split(/\s+/)
-      .filter((t) => t.length > 0)
-      .join(" OR ");
+    // Only apply MATCH if we have a valid tokenized query to avoid syntax errors
+    let ftsQuery = "";
+    if (query) {
+      ftsQuery = query
+        .trim()
+        .replace(/[^\w\s]/gi, '') // Strip punctuation that breaks FTS
+        .split(/\s+/)
+        .filter((t) => t.length > 0)
+        .join(" OR ");
+    }
+
+    let matchClause = "";
+    let orderByClause = "ORDER BY m.importance DESC, m.created_at DESC";
+
+    // Only strictly require FTS match if we actually have query terms
+    // Otherwise rely entirely on semantic ranking
+    if (ftsQuery.length > 0) {
+      matchClause = "AND fts.memories_fts MATCH ?";
+      orderByClause = "ORDER BY rank, m.importance DESC";
+      params.push(ftsQuery);
+    }
+
+    // Fallback limit for vector processing if we don't have FTS
+    const fetchLimit = ftsQuery.length > 0 ? filters.limit : 100;
 
     const sql = `
       SELECT
@@ -274,15 +293,14 @@ export class MemoryRepository {
         m.importance, m.tags, m.embedding,
         m.created_at, m.access_count, m.last_accessed
       FROM memories m
-      JOIN memories_fts fts ON m.rowid = fts.rowid
+      ${ftsQuery.length > 0 ? 'JOIN memories_fts fts ON m.rowid = fts.rowid' : ''}
       ${whereClause}
-      AND fts.content MATCH ?
-      ORDER BY m.importance DESC, m.created_at DESC
+      ${matchClause}
+      ${orderByClause}
       LIMIT ?
     `;
 
-    params.push(ftsQuery);
-    params.push(filters.limit);
+    params.push(fetchLimit);
 
     return this.db.prepare(sql).all(...params) as MemoryRow[];
   }

@@ -31,17 +31,17 @@ export interface EmbeddingProviderConfig {
  */
 export const embeddingProviders: Record<string, EmbeddingProviderConfig> = {
   // === ENABLED PROVIDERS ===
-  
+
   ollama: {
     provider: "ollama",
-    model: process.env.OLLAMA_EMBEDDING_MODEL || "bge-m3:latest",
+    model: process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text:latest",
     baseURL: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
-    dimensions: Number(process.env.OLLAMA_EMBEDDING_DIMENSIONS || "1024"),
+    dimensions: Number(process.env.OLLAMA_EMBEDDING_DIMENSIONS || "768"),
     priority: 1, // Highest priority (local, fast, free)
     timeout: 300000, // 5 minutes (local can be slow on first run)
     maxRetries: 2,
   },
-  
+
   mistralText: {
     provider: "mistral",
     model: process.env.MISTRAL_TEXT_EMBEDDING_MODEL || "mistral-embed",
@@ -63,7 +63,7 @@ export const embeddingProviders: Record<string, EmbeddingProviderConfig> = {
   },
 
   // === DISABLED PROVIDERS (uncomment and configure to enable) ===
-  
+
   /*
 
   openai: {
@@ -114,7 +114,7 @@ export function getProvidersByPriority(): Array<
  */
 export function hasApiKey(providerName: string): boolean {
   const config = embeddingProviders[providerName];
-  
+
   if (!config) {
     return false;
   }

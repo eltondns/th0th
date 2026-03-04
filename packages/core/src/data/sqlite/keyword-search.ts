@@ -22,7 +22,7 @@ export class KeywordSearch implements IKeywordSearch {
   constructor() {
     const keywordConfig = config.get('keywordSearch');
     this.dbPath = keywordConfig.dbPath;
-    
+
     this.initialize();
   }
 
@@ -31,7 +31,21 @@ export class KeywordSearch implements IKeywordSearch {
    */
   private initialize(): void {
     try {
-      this.db = new Database(this.dbPath);
+      // Ensure directory exists
+      const fs = require('fs');
+      const path = require('path');
+      const dir = path.dirname(this.dbPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      try {
+        this.db = new Database(this.dbPath, { create: true, readwrite: true });
+      } catch (err) {
+        logger.warn("KeywordSearch fallback DB creation", { error: (err as Error).message });
+        fs.writeFileSync(this.dbPath, "");
+        this.db = new Database(this.dbPath, { create: true, readwrite: true });
+      }
 
       // Improve lock tolerance for concurrent read/write workloads
       this.db.exec("PRAGMA journal_mode = WAL");
@@ -242,7 +256,7 @@ export class KeywordSearch implements IKeywordSearch {
     try {
       const stmt = this.db.prepare(`DELETE FROM ${this.tableName} WHERE id = ?`);
       const metaStmt = this.db.prepare(`DELETE FROM memories_metadata WHERE id = ?`);
-      
+
       stmt.run(id);
       metaStmt.run(id);
 
@@ -327,7 +341,7 @@ export class KeywordSearch implements IKeywordSearch {
   async close(): Promise<void> {
     try {
       this.db?.close();
-      
+
       logger.info('FTS5 search database closed');
 
     } catch (error) {

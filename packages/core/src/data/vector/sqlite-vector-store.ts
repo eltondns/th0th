@@ -32,7 +32,7 @@ export class SQLiteVectorStore implements IVectorStore {
     const vectorConfig = config.get('vectorStore');
     this.dbPath = vectorConfig.dbPath;
     this.embeddingService = new ChromaEmbeddingService();
-    
+
     this.initialize();
   }
 
@@ -47,7 +47,12 @@ export class SQLiteVectorStore implements IVectorStore {
         fs.mkdirSync(dir, { recursive: true });
       }
 
-      this.db = new Database(this.dbPath);
+      try {
+        this.db = new Database(this.dbPath, { create: true, readwrite: true });
+      } catch (err) {
+        fs.writeFileSync(this.dbPath, "");
+        this.db = new Database(this.dbPath, { create: true, readwrite: true });
+      }
 
       // Create vector documents table with projectId namespace
       this.db.exec(`
@@ -94,16 +99,16 @@ export class SQLiteVectorStore implements IVectorStore {
   ): Promise<void> {
     try {
       const projectId = metadata?.projectId as string || 'default';
-      
+
       // Generate embedding
       const embedding = await this.embeddingService.embed(content);
-      
+
       const stmt = this.db.prepare(`
         INSERT OR REPLACE INTO vector_documents 
         (id, project_id, content, metadata, embedding, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
-      
+
       stmt.run(
         id,
         projectId,
@@ -151,7 +156,7 @@ export class SQLiteVectorStore implements IVectorStore {
       for (let i = 0; i < docs.length; i++) {
         const doc = docs[i];
         const projectId = doc.metadata?.projectId as string || 'default';
-        
+
         insertStmt.run(
           doc.id,
           projectId,
@@ -236,14 +241,14 @@ export class SQLiteVectorStore implements IVectorStore {
    * Search for similar documents with projectId filter
    */
   async search(
-    query: string, 
+    query: string,
     limit: number = 10,
     projectId?: string
   ): Promise<SearchResult[]> {
     try {
       // Generate query embedding
       const queryEmbedding = await this.embeddingService.embed(query);
-      
+
       // Get all documents for the project (or all if no project specified)
       let docs: Array<{
         id: string;
@@ -271,7 +276,7 @@ export class SQLiteVectorStore implements IVectorStore {
       const results = docs.map(doc => {
         const embedding = new Float32Array(doc.embedding.buffer, doc.embedding.byteOffset, doc.embedding.length / 4);
         const similarity = this.cosineSimilarity(queryEmbedding, Array.from(embedding));
-        
+
         return {
           id: doc.id,
           content: doc.content,
@@ -299,7 +304,7 @@ export class SQLiteVectorStore implements IVectorStore {
     try {
       const stmt = this.db.prepare('DELETE FROM vector_documents WHERE id = ?');
       const result = stmt.run(id);
-      
+
       logger.debug('Document deleted from vector store', { id });
       return result.changes > 0;
 
@@ -316,10 +321,10 @@ export class SQLiteVectorStore implements IVectorStore {
     try {
       const stmt = this.db.prepare('DELETE FROM vector_documents WHERE project_id = ?');
       const result = stmt.run(projectId);
-      
-      logger.info('Project documents deleted from vector store', { 
-        projectId, 
-        count: result.changes 
+
+      logger.info('Project documents deleted from vector store', {
+        projectId,
+        count: result.changes
       });
       return result.changes;
 
@@ -457,13 +462,13 @@ export class SQLiteVectorStore implements IVectorStore {
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;
-    
+
     for (let i = 0; i < a.length; i++) {
       dotProduct += a[i] * b[i];
       normA += a[i] * a[i];
       normB += b[i] * b[i];
     }
-    
+
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
@@ -496,7 +501,7 @@ class SQLiteVectorCollection implements IVectorCollection {
     private db: Database,
     public name: string,
     private embeddingService: ChromaEmbeddingService
-  ) {}
+  ) { }
 
   async count(): Promise<number> {
     const stmt = this.db.prepare(`
@@ -591,7 +596,7 @@ class SQLiteVectorCollection implements IVectorCollection {
       DELETE FROM vector_documents 
       WHERE id = ? AND project_id = ?
     `);
-    
+
     for (const id of ids) {
       stmt.run(id, this.name);
     }

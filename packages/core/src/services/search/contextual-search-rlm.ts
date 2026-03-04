@@ -72,11 +72,11 @@ export class ContextualSearchRLM {
 
     // Add default ignores (always ignore these)
     ig.add([
-      "node_modules/**",
-      ".git/**",
-      "dist/**",
-      "build/**",
-      "coverage/**",
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/coverage/**",
       "*.db",
       "*.db-shm",
       "*.db-wal",
@@ -450,7 +450,7 @@ export class ContextualSearchRLM {
     await Promise.all([
       // Vector store: sub-batched embedding + insert
       this.vectorStore.addDocuments(documents),
-      
+
       // Keyword search: parallel FTS5 inserts
       Promise.all(
         documents.map((doc) =>
@@ -730,14 +730,14 @@ export class ContextualSearchRLM {
           // Generate explanation if requested
           const explanation = explainScores
             ? this.generateScoreExplanation(
-                normalizedScore,
-                rrfScore,
-                vectorScore,
-                keywordScore,
-                vectorRank,
-                keywordRank,
-                index,
-              )
+              normalizedScore,
+              rrfScore,
+              vectorScore,
+              keywordScore,
+              vectorRank,
+              keywordRank,
+              index,
+            )
             : undefined;
 
           return {

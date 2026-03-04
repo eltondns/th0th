@@ -103,15 +103,15 @@ export class ContextController {
         maxResults,
         responseMode: "full",
         autoReindex: false,
-        minScore: 0.4,
+        minScore: 0.1, // Lowered from 0.4 to prevent valid context from being ignored
       }),
       includeMemories
         ? this.searchMemoriesSafe(query, {
-            projectId,
-            userId,
-            sessionId,
-            limit: 5,
-          })
+          projectId,
+          userId,
+          sessionId,
+          limit: 5,
+        })
         : Promise.resolve([]),
     ]);
 
