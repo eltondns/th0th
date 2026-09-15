@@ -14,13 +14,20 @@ Monorepo TypeScript com **Bun + Turborepo**. `apps/tools-api`, `apps/mcp-client`
 - **Dependência entre workspaces sem entrar no `package.json`** do pacote que
   consome — o Turbo monta o grafo por ali; sem isso o build passa local e quebra
   no CI (que roda `--frozen-lockfile`).
-- **Contrato público de `packages/core` ou `packages/shared` mudado sem bump de
-  versão.** São publicados; quebra silenciosa vaza para consumidor.
+- **Contrato público mudado sem bump de versão.** O `publish.yml` publica
+  tanto `packages/core` e `packages/shared` (job `publish-packages`) quanto
+  `apps/tools-api`, `apps/mcp-client` e `apps/opencode-plugin` (job
+  `publish-apps`). **Os cinco têm consumidor externo** — a exigência de versão
+  vale para todos, não só para `packages/*`.
 - **`any` novo em API exportada.**
 
 ## Sinalize
 
-- Script novo que não passa por `turbo` (perde cache e paralelismo).
+- **Script novo de orquestração no `package.json` da raiz** que não passa por
+  `turbo` (perde cache e paralelismo). Não vale para os scripts existentes:
+  `dev:*`/`start:*`/`bench:*` usam `bun run --filter` de propósito, e as tarefas
+  `build`/`type-check` dos workspaces são chamadas **pelo** Turbo — não o
+  chamam. Não sinalize esses.
 - Só `packages/core` define `test`; `apps/*` não tem nenhum. Rota ou
   comportamento novo em `apps/*` chega sem cobertura — vale pedir teste.
 - Rota nova no `tools-api` sem entrada no Swagger — o CI faz smoke test em
